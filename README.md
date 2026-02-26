@@ -3,7 +3,7 @@
 A professional, low-code interface for building and analyzing computational pipelines. This project emphasizes component abstraction, dynamic graph behavior, visual clarity, and mathematical integrity.
 
 ## Overview
-This application allows me to:
+This application allows users to:
 - Visually construct directed pipelines
 - Dynamically generate input handles from text templates
 - Connect logical components using React Flow
@@ -20,96 +20,67 @@ The system is architected across four major pillars:
 
 ## 1. Node Abstraction & Handle Dynamics
 At the core of the frontend is a reusable **`BaseNode`** abstraction. Instead of duplicating logic across node types, I created a structured foundation that handles:
-- Header rendering & Icon injection
-- Delete functionality
-- Dynamic handle mapping
-- State integration
+- **Header Rendering & Icons**: Integrated support for Heroicons and consistent labeling.
+- **Node Actions**: Built-in delete functionality tied directly to the Zustand store.
+- **Dynamic Handle Mapping**: A system that translates node metadata into interactive handles.
 
 ### Dynamic Handle Re-indexing
-React Flow does not automatically recalculate handle positions when handles are added or removed dynamically. To solve this, I used:
+React Flow does not automatically re-calculate handle positions when handles are added or removed dynamically. To solve this, I used a `useEffect` hook in the `BaseNode`:
 
 ```javascript
 useEffect(() => {
+  // Forces React Flow to refresh its internal geometry when handles change
   updateNodeInternals(id);
 }, [id, handles, updateNodeInternals]);
 ```
 
-**Without this:**
-- Newly created variable handles would snap connections to the node center
-- Edges would visually break
-- React Flow would not re-index correctly
-
-### Handle Stability
-Every handle uses a deterministic ID: `id: "${id}-${varName}"`
-This prevents cross-node handle confusion and ID collisions. Two nodes both using `{{input}}` become `nodeA-input` and `nodeB-input`, ensuring isolation.
+### Handle Stability & Uniqueness
+Every handle uses a deterministic ID: `id: "${id}-${varName}"`.
+This ensures that React Flow avoids ID collisions even when multiple nodes contain variables with identical names.
 
 ---
 
 ## 2. Design Architecture & UX
-The UI is built using Tailwind CSS with an emphasis on subtle depth, spatial clarity, and interaction feedback.
+The UI is built using Tailwind CSS with an emphasis on subtle depth and responsive feedback.
 
 ### Visual Identity
-- **Slate-based background** for depth with blue accents for interaction.
-- **Glassmorphic toolbar** (`bg-white/70 backdrop-blur-md`).
-- **Custom dotted canvas background** and smooth animated edges.
+- **Premium Aesthetics**: Slate-800 for depth, blue-500 for interactivity, and glassmorphic effects on the toolbar.
+- **Dotted Canvas**: Custom background aesthetics managed via React Flow's `Background` component.
 
 ### Micro-Interactions
-- **Grabbing cursor** only when hovering over draggable nodes.
-- **Slight scale and shadow elevation** on interaction.
-- **Non-blocking toast notifications** and custom confirmation UI for “Clear Workspace”.
+- **Contextual Cursors**: The "grabbing" hand appears only on interactive elements.
+- **Non-blocking Feedback**: I replaced standard browser alerts with `react-hot-toast` for both success notifications and critical clear-workspace confirmations.
+- **Active States**: Dynamic scale and shadow elevation when nodes are selected.
 
 ---
 
 ## 3. Text Node Variable Engine
-The `TextNode` transforms templated text into structured graph inputs.
+The `TextNode` transforms templated text into structured graph inputs in real-time.
 
 ### Regex-Based Variable Detection
-I used the pattern: `/\{\{\s*([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\}\}/g`
+I used a precise regex pattern: `/\{\{\s*([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\}\}/g`
 
-| Part | Meaning |
-| :--- | :--- |
-| `\{\{` | Match literal {{ |
-| `\s*` | Optional whitespace |
-| `[a-zA-Z_$]` | Valid JavaScript identifier start |
-| `[a-zA-Z0-9_$]*` | Valid identifier continuation |
-| `\s*` | Optional whitespace |
-| `\}\}` | Match literal }} |
-| `g` | Global search flag |
+**Features:**
+- **Deduplication**: A `Set` prevents the creation of redundant handles for duplicate variables.
+- **Performance**: Deep equality checks prevent unnecessary re-renders during typing.
+- **Auto-Resize**: The textarea height adjusts dynamically to the content.
 
-**Why restrict to JS Identifiers?** To prevent malformed handles, avoid injection risks, and ensure deterministic ID mapping.
-
-### Deduplication & Performance
-- **Deduplication Strategy**: Using a `Set` prevents duplicate handles for the same variable.
-- **Performance Optimization**: Before updating state, I check if the variables have actually changed to prevent unnecessary re-renders and edge flickering.
-
-### Dynamic Handle Positioning
-Handles are evenly spaced: `top: "${((i + 1) / (variables.length + 1)) * 100}%"`. This ensures no overlapping and visual symmetry as the variable count increases.
-
-### Localized Tooltip System
-To improve clarity without cluttering the card:
-- Tooltips appear when hovering over left-side dynamic handles.
-- The tooltip sits outside the card boundary.
-- Tooltip logic is isolated within `TextNode` to maintain abstraction cleanliness.
+### Variable Visualization
+To provide immediate feedback, detected variables are displayed as **blue tags** at the bottom of the node.
+- **Tooltips on Tags**: Hovering over these tags reveals the variable name in a slate-themed tooltip, helping users distinguish between inputs in complex nodes.
 
 ---
 
 ## 4. Backend Graph Validation
-The backend is implemented using FastAPI and performs structural validation of the pipeline.
+The backend is implemented using FastAPI and performs mathematical validation of the pipeline's structure.
 
-### DAG Detection Using Kahn’s Algorithm
-A pipeline must form a Directed Acyclic Graph (DAG). I implemented Kahn’s Topological Sort algorithm:
-1. Build adjacency list and compute in-degree of each node.
-2. Add all nodes with in-degree 0 to a queue.
-3. Process the queue: Remove node, decrease in-degree of neighbors, add to queue if in-degree becomes 0.
-4. Compare processed count with total nodes.
+### DAG Detection via Kahn’s Algorithm
+I implemented Kahn’s Topological Sort algorithm to ensure the pipeline forms a Directed Acyclic Graph (DAG).
+- **Adjacency Mapping**: Logic to convert frontend edges into a directed graph structure.
+- **Cycle Detection**: The system calculates the in-degree of every node and identifies any logical loops that would break the pipeline flow.
 
-**Time Complexity**: O(V + E) — optimal for directed graph cycle detection.
-
-### Self-Loop Detection
-For an edge `A → A`, the in-degree of A is 1. The queue starts empty, so no node is processed, and a cycle is detected automatically.
-
-### Strict Response Schema
-The backend returns a clean API contract:
+### Clean Contract
+The backend return schema is kept minimal and predictable:
 ```json
 {
   "num_nodes": int,
@@ -120,19 +91,11 @@ The backend returns a clean API contract:
 
 ---
 
-## Implementation Challenges & Solutions
-
-1. **Center Jump Bug**: Edges snapped to node center after dynamic handle creation. Fixed by forcing `updateNodeInternals(id)`.
-2. **Handle ID Collisions**: Two nodes with the same variable name caused connection confusion. Fixed by prefixing handle IDs with parent node ID.
-3. **UI Clutter**: Displaying variable names inside the card made it busy. Fixed by moving identification to hover-triggered tooltips outside the card boundary.
-
----
-
 ## Feature Highlights
-- **12+ node types** with Undo / Redo via Zustand history stack.
-- **Keyboard shortcuts** and auto-resizing textareas.
-- **Dynamic variable ingestion** and smart handle spacing.
-- **Backend cycle detection** with clean separation of concerns.
+- **10 specialized node types** (LLM, Request, Logic, Note, etc.).
+- **Undo / Redo** stack for mistake-free editing.
+- **Dynamic Handle Spacing**: Automatic vertical distribution of generated input handles.
+- **Integrated Submission**: Native React Flow `Panel` for pipeline analysis.
 
 ---
 

@@ -114,3 +114,4 @@ cd backend
 pip install -r requirements.txt
 uvicorn main:app --reload
 ```
+Completed the final assignment by Vector_shift YC 23

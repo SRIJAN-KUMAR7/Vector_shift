@@ -67,7 +67,6 @@ I used a precise regex pattern: `/\{\{\s*([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\}\}/g`
 
 ### Variable Visualization
 To provide immediate feedback, detected variables are displayed as **blue tags** at the bottom of the node.
-- **Tooltips on Tags**: Hovering over these tags reveals the variable name in a slate-themed tooltip, helping users distinguish between inputs in complex nodes.
 
 ---
 
